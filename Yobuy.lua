@@ -27,7 +27,7 @@ getgenv().AutoFarmActive = true
 MainTab:Toggle({
     Title = "Auto Farm Office",
     Desc = "Aktifkan atau matikan bot otomatis kantor",
-    Value = true,
+    Value = false,
     Callback = function(state)
         getgenv().AutoFarmActive = state
         local statusText = "Bot dimatikan!"
