@@ -24,7 +24,7 @@ local PrinterCoordinates = {
 }
 
 -- Load WindUI Library
-local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist.lua"))()
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/main.client.lua"))()
 
 -- Buat Window Utama
 local Window = WindUI:CreateWindow({
