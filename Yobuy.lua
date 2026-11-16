@@ -21,8 +21,8 @@ local MainTab = Window:Tab({
     Icon = "home",
 })
 
--- Variabel global status bot
-getgenv().AutoFarmActive = true
+-- Variabel global status bot (Default false biar nunggu user nyalain)
+getgenv().AutoFarmActive = false
 
 MainTab:Toggle({
     Title = "Auto Farm Office",
@@ -30,15 +30,18 @@ MainTab:Toggle({
     Value = false,
     Callback = function(state)
         getgenv().AutoFarmActive = state
-        local statusText = "Bot dimatikan!"
-        if state then
-            statusText = "Bot diaktifkan!"
-        end
+        local statusText = state and "Bot diaktifkan!" or "Bot dimatikan!"
+        
         WindUI:Notify({
             Title = "Status Bot",
             Content = statusText,
             Duration = 2
         })
+        
+        -- Kalau toggle dinyalakan, langsung eksekusi alur awal (Select Job -> Jeda 3s -> Waypoints)
+        if state and getgenv().RunInitialFarm then
+            task.spawn(getgenv().RunInitialFarm)
+        end
     end
 })
 
