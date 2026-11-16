@@ -1,6 +1,10 @@
 -- ==========================================
--- KEREN HUB - ULTIMATE OFFICE BOT (WINDUI EDITION)
+-- OFFICE BOT - WINDUI EDITION (SAFE MODE)
 -- ==========================================
+
+-- 1. Load Library WindUI (Latest Version)
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PathfindingService = game:GetService("PathfindingService")
@@ -23,43 +27,10 @@ local PrinterCoordinates = {
     ["Print_5"] = Vector3.new(-5868.429, 5.956, -249.965),
 }
 
--- Load WindUI Library
-local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/main.client.lua"))()
-
--- Buat Window Utama
-local Window = WindUI:CreateWindow({
-    Title = "Keren Hub | Office Bot",
-    Icon = "monitor",
-    Author = "Keren Team",
-    Folder = "KerenHubConfig",
-    Size = UDim2.fromOffset(460, 320),
-    Transparent = true,
-    Theme = "Dark",
-    SideBarWidth = 140,
-})
-
--- Buat Tab Utama
-local MainTab = Window:Tab({
-    Title = "Auto Farm",
-    Icon = "play-circle",
-})
-
-local PrintersTab = Window:Tab({
-    Title = "Manual Printers",
-    Icon = "map-pin",
-})
-
--- Notifikasi Awal
-WindUI:Notify({
-    Title = "Keren Hub Active!",
-    Content = "Bot Office & WindUI berhasil dimuat.",
-    Duration = 3
-})
-
 -- ==========================================
 -- FUNGSI UTAMA: DETEKSI & JALAN KE PRINTER
 -- ==========================================
-local function walkToSpecificPrinter(printerName)
+local function walkToActivePrinter()
     pcall(function()
         local char = LocalPlayer.Character
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -72,22 +43,49 @@ local function walkToSpecificPrinter(printerName)
             task.wait(1)
         end
 
-        local targetPos = PrinterCoordinates[printerName]
-        local printerModel = ComputersFolder:FindFirstChild(printerName)
+        local targetPrinterName = nil
+        local targetPos = nil
         local targetPrompt = nil
+        local foundActive = false
 
-        if printerModel then
-            for _, descendant in ipairs(printerModel:GetDescendants()) do
-                if descendant:IsA("ProximityPrompt") then
-                    targetPrompt = descendant
-                    break
+        local attempts = 0
+        while not foundActive and attempts < 15 do
+            attempts = attempts + 1
+
+            for i = 1, 5 do
+                local pName = "Print_" .. i
+                local printerModel = ComputersFolder:FindFirstChild(pName)
+                
+                if printerModel then
+                    local isPromptEnabled = false
+                    local foundPrompt = nil
+
+                    for _, descendant in ipairs(printerModel:GetDescendants()) do
+                        if descendant:IsA("ProximityPrompt") then
+                            foundPrompt = descendant
+                            if descendant.Enabled then
+                                isPromptEnabled = true
+                            end
+                            break
+                        end
+                    end
+
+                    if isPromptEnabled and foundPrompt then
+                        targetPrinterName = pName
+                        targetPos = PrinterCoordinates[pName]
+                        targetPrompt = foundPrompt
+                        foundActive = true
+                        break
+                    end
                 end
+            end
+
+            if not foundActive then
+                task.wait(0.4)
             end
         end
 
-        if targetPos then
-            WindUI:Notify({ Title = "Keren Hub", Content = "Menuju ke " .. printerName, Duration = 2 })
-            
+        if targetPos and targetPrinterName then
             local path = PathfindingService:CreatePath({
                 AgentRadius = 2,
                 AgentHeight = 5,
@@ -106,7 +104,7 @@ local function walkToSpecificPrinter(printerName)
                     
                     local reached = false
                     local conn
-                    conn = humanoid.MoveToFinished:Connect(function()
+                    conn = humanoid.MoveToFinished:Connect(function(isReached)
                         reached = true
                         if conn then conn:Disconnect() end
                     end)
@@ -125,58 +123,7 @@ local function walkToSpecificPrinter(printerName)
             task.wait(0.3)
             if targetPrompt and fireproximityprompt then
                 fireproximityprompt(targetPrompt)
-                WindUI:Notify({ Title = "Sukses", Content = "Berinteraksi dengan " .. printerName, Duration = 2 })
             end
-        end
-    end)
-end
-
-local function walkToActivePrinter()
-    pcall(function()
-        local char = LocalPlayer.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-        if not hrp or not humanoid then return end
-
-        if humanoid.SeatPart then
-            humanoid.Sit = false
-            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-            task.wait(1)
-        end
-
-        local targetPrinterName = nil
-        local foundActive = false
-
-        local attempts = 0
-        while not foundActive and attempts < 15 do
-            attempts = attempts + 1
-            for i = 1, 5 do
-                local pName = "Print_" .. i
-                local printerModel = ComputersFolder:FindFirstChild(pName)
-                
-                if printerModel then
-                    local isPromptEnabled = false
-                    for _, descendant in ipairs(printerModel:GetDescendants()) do
-                        if descendant:IsA("ProximityPrompt") then
-                            if descendant.Enabled then
-                                isPromptEnabled = true
-                            end
-                            break
-                        end
-                    end
-
-                    if isPromptEnabled then
-                        targetPrinterName = pName
-                        foundActive = true
-                        break
-                    end
-                end
-            end
-            if not foundActive then task.wait(0.4) end
-        end
-
-        if targetPrinterName then
-            walkToSpecificPrinter(targetPrinterName)
         end
     end)
 end
@@ -198,6 +145,8 @@ local function solveOfficeTask()
         if not (rawText:find("%+") or rawText:find("%-")) then return end
 
         local cleanExpr = rawText:gsub("=.*", ""):gsub("[^%d%+%-]", "")
+        local mathFunc = loadstring("return " + cleanExpr) -- Biarkan aman sesuai fungsi asli
+        -- Catatan: jika loadstring math error di executor tertentu, pastikan string konkatenasi di bawah:
         local mathFunc = loadstring("return " .. cleanExpr)
         if not mathFunc then return end
 
@@ -205,6 +154,7 @@ local function solveOfficeTask()
         if not success or not result then return end
         
         local targetAnswer = tostring(result)
+
         task.wait(math.random(10, 15) / 10)
 
         local frame = workGui:FindFirstChild("Frame")
@@ -221,6 +171,7 @@ local function solveOfficeTask()
                 end
 
                 local cleanBtnText = btnText:gsub("%D", "")
+
                 if cleanBtnText == targetAnswer or btnText == targetAnswer then
                     if obj:IsA("GuiButton") then
                         if firesignal then
@@ -230,6 +181,7 @@ local function solveOfficeTask()
                             obj:Activate()
                         end
                     end
+                    
                     task.wait(1.2)
                     break
                 end
@@ -239,47 +191,59 @@ local function solveOfficeTask()
 end
 
 -- ==========================================
--- SETUP UI CONTROLS (WINDUI)
+-- PEMBUATAN WINDUI PANEL
 -- ==========================================
+local Window = WindUI:CreateWindow({
+    Title = "Keren Hub",
+    Icon = "monitor",
+    Author = "Office Bot",
+    Folder = "OfficeBotConfig",
+    Size = UDim2.fromOffset(480, 320),
+    Transparent = true,
+    Theme = "Dark",
+})
+
+local MainTab = Window:Tab({
+    Title = "Automation",
+    Icon = "home",
+})
+
 MainTab:Toggle({
-    Title = "Auto Farm Bot",
-    Desc = "Menyalakan/Mematikan bot otomatis printer & math solver",
+    Title = "Auto Farm Office",
+    Desc = "Aktifkan atau matikan bot otomatis kantor",
     Value = true,
     Callback = function(state)
         AutoFarmActive = state
-        WindUI:Notify({ Title = "Bot Status", Content = state ? "Auto Farm diaktifkan!" : "Auto Farm dimatikan.", Duration = 2 })
+        WindUI:Notify({
+            Title = "Status Bot",
+            Content = state ? "Bot diaktifkan!" : "Bot dimatikan!",
+            Duration = 2
+        })
     end
 })
 
 MainTab:Button({
-    Title = "Cari Printer Aktif Sekarang",
-    Desc = "Memicu pencarian printer manual secara instan",
+    Title = "Manual Run Printer",
+    Desc = "Panggil fungsi jalan ke printer sekarang",
     Callback = function()
-        walkToActivePrinter()
+        task.spawn(walkToActivePrinter)
+        WindUI:Notify({
+            Title = "Informasi",
+            Content = "Mencari printer aktif...",
+            Duration = 2
+        })
     end
 })
-
--- Tambahkan Tombol Printer 1-5 ke Tab Manual
-for i = 1, 5 do
-    local pName = "Print_" .. i
-    PrintersTab:Button({
-        Title = "Jalan ke " .. pName,
-        Desc = "Teleport/Jalan langsung ke " .. pName,
-        Callback = function()
-            walkToSpecificPrinter(pName)
-        end
-    })
-end
 
 -- ==========================================
 -- LOOP & EVENT LISTENER UTAMA
 -- ==========================================
 task.spawn(function()
     while true do
-        task.wait(1)
         if AutoFarmActive then
             solveOfficeTask()
         end
+        task.wait(1)
     end
 end)
 
@@ -289,6 +253,8 @@ AssignPrintJob.OnClientEvent:Connect(function()
     walkToActivePrinter()
 end)
 
-print("==========================================")
-print("[Keren Hub] Ultimate Office Bot WindUI Ready!")
-print("==========================================")
+WindUI:Notify({
+    Title = "Keren Hub Berhasil Dimuat",
+    Content = "Sistem siap digunakan, bray!",
+    Duration = 3
+})
